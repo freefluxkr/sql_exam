@@ -12,8 +12,7 @@
 (function (global) {
   'use strict';
 
-  // '당목담글' 영문 자판: ekd(당) + ahr(목) + eka(담) + rmf(글) = ekdahrekarmf (대소문자 무관 허용)
-  const ALLOWED_PASSCODES = ['EKDAHREKARMF', 'EKDAHREKAEMF', '당목담글'];
+  const ALLOWED_PASSCODES = ['tuesvonita', 'TUESVONITA'];
   const SESSION_AUTH_KEY = 'dmdg_sql_exam_admin_authed';
 
   let allSubmissions = [];
