@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SQL 평가 관리자 콘솔 | 채점 · 6대 통계지표 · 주관식 검수</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <!-- Chart.js for Score Histogram & Area Charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- sql.js for Live SQL Sandbox & Re-grading -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <style>
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+    @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap');
+
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #0b1120;
+      color: #f1f5f9;
+    }
+    .code-font {
+      font-family: 'Fira Code', monospace;
+    }
+    .glass-card {
+      background: rgba(30, 41, 59, 0.78);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(71, 85, 105, 0.55);
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(71, 85, 105, 0.9);
+      border-radius: 4px;
+    }
+    .admin-tab-btn {
+      border-bottom: 2px solid transparent;
+      transition: all 0.18s ease;
+    }
+    .admin-tab-btn.active {
+      color: #22d3ee;
+      border-bottom-color: #22d3ee;
+      font-weight: 800;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-cyan-500 selection:text-slate-950">
+
+  <!-- ===================================================================
+       ADMIN AUTH OVERLAY
+       =================================================================== -->
+  <div id="admin-auth-overlay" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center px-4">
+    <div class="glass-card rounded-2xl p-8 max-w-md w-full shadow-2xl border-t-4 border-t-cyan-500">
+      <div class="w-14 h-14 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center mx-auto mb-4">
+        <i class="fa-solid fa-user-shield text-2xl"></i>
+      </div>
+      <h2 class="text-xl font-extrabold text-white text-center">SQL 평가 관리자 콘솔 로그인</h2>
+      <p class="text-xs text-slate-400 text-center mt-1 mb-6">
+        채점 관리, 주관식 SQL 실행 검증 및 6대 통계지표 대시보드
+      </p>
+
+      <form onsubmit="event.preventDefault(); handleAdminPasscodeLogin();" class="space-y-4">
+        <div>
+          <label for="admin-passcode-input" class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+            관리자 접속 암호
+          </label>
+          <input id="admin-passcode-input" type="password" value="admin1234"
+            placeholder="관리자 암호 입력 (기본: admin1234)"
+            class="w-full bg-slate-950 border border-slate-700 focus:border-cyan-400 rounded-xl px-4 py-2.5 text-sm text-white outline-none">
+          <p class="text-[11px] text-slate-400 mt-1.5">
+            * 빠른 확인을 위해 기본 암호(<code class="text-cyan-300 code-font">admin1234</code>)가 입력되어 있습니다.
+          </p>
+        </div>
+
+        <div id="admin-auth-error" class="hidden text-xs text-rose-400 bg-rose-950/60 border border-rose-800 rounded-lg px-3 py-2"></div>
+
+        <button type="submit"
+          class="w-full bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-slate-950 hover:text-white font-extrabold text-sm py-3 rounded-xl shadow-lg transition">
+          <i class="fa-solid fa-unlock-keyhole mr-1.5"></i> 관리자 콘솔 입장하기
+        </button>
+
+        <div class="pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
+          <a href="index.html" class="text-slate-400 hover:text-cyan-300 transition">
+            <i class="fa-solid fa-arrow-left mr-1"></i>응시자 시험 화면으로 이동
+          </a>
+          <button type="button" onclick="handleGoogleAdminLogin()" class="text-indigo-400 hover:text-indigo-300 font-semibold">
+            <i class="fa-brands fa-google mr-1"></i>Google 계정 인증
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================================================================
+       TOP HEADER & NAVIGATION TABS
+       =================================================================== -->
+  <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 pt-3 flex flex-wrap justify-between items-center gap-3">
+      <div class="flex items-center space-x-3">
+        <div class="bg-gradient-to-br from-amber-500 to-indigo-600 text-white w-10 h-10 rounded-xl flex items-center justify-center shadow-lg">
+          <i class="fa-solid fa-chart-line text-lg"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg sm:text-xl font-extrabold text-white">SQL 평가 관리자 채점 · 통계 센터</h1>
+            <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+              실시간 연동
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">객관식 45 · 주관식 45 | SQL 실행 결과 자동채점 및 6대 통계지표 분석</p>
+        </div>
+      </div>
+
+      <!-- Quick Action Buttons -->
+      <div class="flex flex-wrap items-center gap-2">
+        <button type="button" onclick="handleSeedDemoData()"
+          class="bg-indigo-600/25 hover:bg-indigo-600/40 text-indigo-200 border border-indigo-500/40 text-xs font-bold px-3 py-2 rounded-lg transition flex items-center gap-1.5"
+          title="통계 그래프와 순위표를 즉시 테스트할 수 있도록 샘플 응시자 10명의 데이터를 생성합니다">
+          <i class="fa-solid fa-wand-magic-sparkles text-indigo-400"></i>
+          <span>샘플 응시 데이터 생성(10명)</span>
+        </button>
+
+        <button type="button" onclick="exportSubmissionsCsv()"
+          class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold px-3.5 py-2 rounded-lg shadow transition flex items-center gap-1.5">
+          <i class="fa-solid fa-file-csv"></i>
+          <span>엑셀(CSV) 다운로드</span>
+        </button>
+
+        <a href="index.html"
+          class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold px-3.5 py-2 rounded-lg border border-slate-700 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-external-link-alt text-cyan-400"></i>
+          <span>응시자 시험 화면</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="max-w-7xl mx-auto px-4 mt-3 flex space-x-6 overflow-x-auto text-xs sm:text-sm font-semibold text-slate-400">
+      <button type="button" onclick="switchAdminTab('dashboard')" data-tab="dashboard" class="admin-tab-btn active pb-3 whitespace-nowrap flex items-center gap-1.5">
+        <i class="fa-solid fa-chart-pie"></i> 1. 종합 통계 대시보드
+      </button>
+      <button type="button" onclick="switchAdminTab('candidates')" data-tab="candidates" class="admin-tab-btn pb-3 whitespace-nowrap flex items-center gap-1.5">
+        <i class="fa-solid fa-trophy"></i> 2. 응시자별 점수 · 순위
+      </button>
+      <button type="button" onclick="switchAdminTab('subjective')" data-tab="subjective" class="admin-tab-btn pb-3 whitespace-nowrap flex items-center gap-1.5">
+        <i class="fa-solid fa-code"></i> 3. 주관식 SQL 채점 · 검수
+        <span id="badge-pending-review" class="px-1.5 py-0.5 text-[10px] rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">0</span>
+      </button>
+      <button type="button" onclick="switchAdminTab('questions')" data-tab="questions" class="admin-tab-btn pb-3 whitespace-nowrap flex items-center gap-1.5">
+        <i class="fa-solid fa-magnifying-glass-chart"></i> 4. 문항별 정답률 분석 (90문항)
+      </button>
+      <button type="button" onclick="switchAdminTab('settings')" data-tab="settings" class="admin-tab-btn pb-3 whitespace-nowrap flex items-center gap-1.5">
+        <i class="fa-solid fa-sliders"></i> 5. 시험 설정 · 문제은행 관리
+      </button>
+    </div>
+  </header>
+
+  <!-- ===================================================================
+       MAIN ADMIN CONTENT
+       =================================================================== -->
+  <main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full space-y-6">
+
+    <!-- ===============================================================
+         TAB 1: DASHBOARD (6 Statistical Indicators Overview)
+         =============================================================== -->
+    <section id="tab-dashboard" class="space-y-6">
+
+      <!-- KPI Metric Cards (평균 / 최고 / 최저 / 합격률 / 총 응시자) -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div class="glass-card p-4 rounded-xl border-l-4 border-l-cyan-400">
+          <div class="text-xs text-slate-400">총 응시 건수</div>
+          <div id="kpi-total-count" class="code-font text-2xl font-black text-white mt-1">0명</div>
+          <div id="kpi-unique-names" class="text-[11px] text-slate-400 mt-0.5">고유 인원 0명</div>
+        </div>
+        <div class="glass-card p-4 rounded-xl border-l-4 border-l-indigo-400">
+          <div class="text-xs text-slate-400">전체 평균 점수</div>
+          <div id="kpi-avg-score" class="code-font text-2xl font-black text-indigo-300 mt-1">0.0점</div>
+          <div class="text-[11px] text-slate-400 mt-0.5">100점 환산 기준</div>
+        </div>
+        <div class="glass-card p-4 rounded-xl border-l-4 border-l-emerald-400">
+          <div class="text-xs text-slate-400">합격률 (80점 이상)</div>
+          <div id="kpi-pass-rate" class="code-font text-2xl font-black text-emerald-400 mt-1">0.0%</div>
+          <div id="kpi-pass-count" class="text-[11px] text-slate-400 mt-0.5">합격 0명 / 불합격 0명</div>
+        </div>
+        <div class="glass-card p-4 rounded-xl border-l-4 border-l-amber-400">
+          <div class="text-xs text-slate-400">최고 점수</div>
+          <div id="kpi-max-score" class="code-font text-2xl font-black text-amber-300 mt-1">0.0점</div>
+          <div id="kpi-max-student" class="text-[11px] text-slate-400 mt-0.5">-</div>
+        </div>
+        <div class="glass-card p-4 rounded-xl border-l-4 border-l-rose-400">
+          <div class="text-xs text-slate-400">최저 점수</div>
+          <div id="kpi-min-score" class="code-font text-2xl font-black text-rose-300 mt-1">0.0점</div>
+          <div id="kpi-min-student" class="text-[11px] text-slate-400 mt-0.5">-</div>
+        </div>
+        <div class="glass-card p-4 rounded-xl border-l-4 border-l-purple-400">
+          <div class="text-xs text-slate-400">객관식 vs 주관식 정답률</div>
+          <div id="kpi-type-compare" class="code-font text-base font-extrabold text-purple-300 mt-1.5">0% / 0%</div>
+          <div class="text-[11px] text-slate-400 mt-0.5">객관식 / 주관식</div>
+        </div>
+      </div>
+
+      <!-- Charts Row: Score Distribution Histogram + Area Scores Chart -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Chart 1: Score Distribution Histogram -->
+        <div class="glass-card p-5 rounded-2xl">
+          <div class="flex justify-between items-center mb-4">
+            <div>
+              <h3 class="text-base font-extrabold text-white flex items-center gap-2">
+                <i class="fa-solid fa-chart-column text-cyan-400"></i> 점수 분포 그래프 (히스토그램)
+              </h3>
+              <p class="text-xs text-slate-400">구간별 응시자 인원 분포 (80점 이상 합격 구간 녹색 표시)</p>
+            </div>
+          </div>
+          <div class="h-64">
+            <canvas id="chart-score-histogram"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 2: Area Scores (SQL 기초 / 활용 / 응용) -->
+        <div class="glass-card p-5 rounded-2xl">
+          <div class="flex justify-between items-center mb-4">
+            <div>
+              <h3 class="text-base font-extrabold text-white flex items-center gap-2">
+                <i class="fa-solid fa-layer-group text-indigo-400"></i> 영역별 · 유형별 평균 득점률 (%)
+              </h3>
+              <p class="text-xs text-slate-400">SQL 기초(Ch05) · SQL 활용(Ch06) · SQL 응용(Ch07) 성취도 비교</p>
+            </div>
+          </div>
+          <div class="h-64">
+            <canvas id="chart-area-scores"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Row: Top 5 Leaderboard & Top 5 Hardest Questions -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Top Ranking Preview -->
+        <div class="glass-card p-5 rounded-2xl">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-base font-extrabold text-white flex items-center gap-2">
+              <i class="fa-solid fa-ranking-star text-amber-400"></i> 응시자 점수 · 순위 TOP 7
+            </h3>
+            <button type="button" onclick="switchAdminTab('candidates')" class="text-xs text-cyan-400 hover:underline">
+              전체 순위 보기 ➔
+            </button>
+          </div>
+          <div id="dash-top-candidates" class="space-y-2"></div>
+        </div>
+
+        <!-- Hardest Questions (Lowest Accuracy) Preview -->
+        <div class="glass-card p-5 rounded-2xl">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-base font-extrabold text-white flex items-center gap-2">
+              <i class="fa-solid fa-fire text-rose-400"></i> 오답률 상위 문항 (어려운 문제 TOP 7)
+            </h3>
+            <button type="button" onclick="switchAdminTab('questions')" class="text-xs text-cyan-400 hover:underline">
+              전 문항 정답률 보기 ➔
+            </button>
+          </div>
+          <div id="dash-hardest-questions" class="space-y-2"></div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ===============================================================
+         TAB 2: CANDIDATE SCORES & RANKINGS
+         =============================================================== -->
+    <section id="tab-candidates" class="hidden space-y-4">
+      <div class="glass-card p-5 rounded-2xl">
+        <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="relative">
+              <i class="fa-solid fa-search absolute left-3 top-2.5 text-slate-500 text-xs"></i>
+              <input id="cand-search-input" type="text" oninput="renderCandidatesTable()"
+                placeholder="응시자 이름 검색..."
+                class="bg-slate-950 border border-slate-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white outline-none focus:border-cyan-400">
+            </div>
+
+            <select id="cand-pass-filter" onchange="renderCandidatesTable()"
+              class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 outline-none">
+              <option value="ALL">전체 (합격+불합격)</option>
+              <option value="PASS">합격자만 (80점 이상)</option>
+              <option value="FAIL">불합격자만 (80점 미만)</option>
+            </select>
+
+            <select id="cand-sort-select" onchange="renderCandidatesTable()"
+              class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 outline-none">
+              <option value="rank">점수 높은 순 (순위순)</option>
+              <option value="latest">최근 제출 순</option>
+              <option value="name">이름 가나다 순</option>
+            </select>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="exportSubmissionsCsv()"
+              class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition">
+              <i class="fa-solid fa-download mr-1"></i>현재 목록 CSV 다운로드
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-950/90 text-slate-400 border-b border-slate-800 uppercase">
+                <th class="py-3 px-3">순위</th>
+                <th class="py-3 px-3">응시자 이름</th>
+                <th class="py-3 px-3">응시 구성</th>
+                <th class="py-3 px-3">환산 총점</th>
+                <th class="py-3 px-3">합격 여부</th>
+                <th class="py-3 px-3">기초 / 활용 / 응용</th>
+                <th class="py-3 px-3">소요시간 (초과)</th>
+                <th class="py-3 px-3">제출 일시</th>
+                <th class="py-3 px-3 text-right">상세 / 관리</th>
+              </tr>
+            </thead>
+            <tbody id="candidates-table-body" class="divide-y divide-slate-800/70"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===============================================================
+         TAB 3: SUBJECTIVE SQL REVIEW & MANUAL SCORE ADJUSTMENT
+         =============================================================== -->
+    <section id="tab-subjective" class="hidden space-y-4">
+      <div class="glass-card p-5 rounded-2xl">
+        <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
+          <div>
+            <h3 class="text-base font-extrabold text-white flex items-center gap-2">
+              <i class="fa-solid fa-code-compare text-cyan-400"></i>
+              <span>주관식 SQL 자동채점 결과 검토 및 관리자 최종 점수 확정</span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">
+              SQL 실행 결과 비교 · DB 상태 검증 · 핵심 키워드 분석 결과를 확인하고 부분 점수나 정답 여부를 즉시 수정할 수 있습니다.
+            </p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <select id="subj-review-filter" onchange="renderSubjectiveReviewList()"
+              class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 outline-none">
+              <option value="all">전체 주관식 제출 답안</option>
+              <option value="needsReview">검수 권장 (부분점수/오답) 답안만</option>
+              <option value="wrong">0점(오답) 답안만</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="subjective-review-list" class="space-y-4"></div>
+      </div>
+    </section>
+
+    <!-- ===============================================================
+         TAB 4: PER-QUESTION ACCURACY ANALYTICS (ALL 90 QUESTIONS)
+         =============================================================== -->
+    <section id="tab-questions" class="hidden space-y-4">
+      <div class="glass-card p-5 rounded-2xl">
+        <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
+          <div>
+            <h3 class="text-base font-extrabold text-white">문항별 정답률 · 평균 소요시간 · 시간초과율 분석</h3>
+            <p class="text-xs text-slate-400">어려운 문제와 헷갈리는 보기를 한눈에 파악합니다.</p>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <select id="qstat-cat-filter" onchange="renderQuestionStatsTable()"
+              class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 outline-none">
+              <option value="ALL">전체 단원 (Ch05~Ch07)</option>
+              <option value="SQL 기초">SQL 기초 (Ch05)</option>
+              <option value="SQL 활용">SQL 활용 (Ch06)</option>
+              <option value="SQL 응용">SQL 응용 (Ch07)</option>
+            </select>
+
+            <select id="qstat-type-filter" onchange="renderQuestionStatsTable()"
+              class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 outline-none">
+              <option value="ALL">객관식 + 주관식 전체 (90문항)</option>
+              <option value="choice">객관식만 (45문항)</option>
+              <option value="sql">주관식만 (45문항)</option>
+            </select>
+
+            <select id="qstat-sort-filter" onchange="renderQuestionStatsTable()"
+              class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 outline-none">
+              <option value="no">문항 번호순</option>
+              <option value="hardest">정답률 낮은 순 (어려운 문제순)</option>
+              <option value="easiest">정답률 높은 순</option>
+              <option value="slowest">평균 소요시간 긴 순</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-950/90 text-slate-400 border-b border-slate-800 uppercase">
+                <th class="py-3 px-3">문항 ID</th>
+                <th class="py-3 px-3">단원 / 유형</th>
+                <th class="py-3 px-3">문제 요약</th>
+                <th class="py-3 px-3">응시 수</th>
+                <th class="py-3 px-3">정답률</th>
+                <th class="py-3 px-3">평균 시간</th>
+                <th class="py-3 px-3">시간초과</th>
+              </tr>
+            </thead>
+            <tbody id="question-stats-table-body" class="divide-y divide-slate-800/70"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===============================================================
+         TAB 5: EXAM SETTINGS & QUESTION BANK MANAGEMENT
+         =============================================================== -->
+    <section id="tab-settings" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- Left 6 Cols: Timer & Pass Score Configuration -->
+      <div class="lg:col-span-6 glass-card p-6 rounded-2xl space-y-4">
+        <h3 class="text-base font-extrabold text-white flex items-center gap-2">
+          <i class="fa-solid fa-gear text-cyan-400"></i> 시험 시간 및 합격 기준 설정
+        </h3>
+
+        <form onsubmit="event.preventDefault(); saveAdminSettingsForm();" class="space-y-4 text-xs">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block font-bold text-slate-300 mb-1">객관식 1문항 제한시간 (초)</label>
+              <input id="set-choice-time" type="number" min="15" max="600" value="60"
+                class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white code-font">
+              <span class="text-[11px] text-slate-400">기본값: 60초 (1분)</span>
+            </div>
+            <div>
+              <label class="block font-bold text-slate-300 mb-1">주관식 1문항 제한시간 (초)</label>
+              <input id="set-sql-time" type="number" min="30" max="1200" value="120"
+                class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white code-font">
+              <span class="text-[11px] text-slate-400">기본값: 120초 (2분)</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block font-bold text-slate-300 mb-1">합격 기준 점수 (100점 만점 기준)</label>
+              <input id="set-pass-score" type="number" min="10" max="100" value="80"
+                class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white code-font">
+              <span class="text-[11px] text-slate-400">기본값: 80점 이상 PASS</span>
+            </div>
+            <div class="flex flex-col justify-center space-y-2 pt-2">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input id="set-shuffle" type="checkbox" checked class="accent-cyan-400 w-4 h-4">
+                <span class="text-slate-200 font-semibold">응시자마다 문제 순서 랜덤 섞기</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input id="set-block-dup" type="checkbox" class="accent-cyan-400 w-4 h-4">
+                <span class="text-slate-200 font-semibold">동일 기기 재응시 차단</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input id="set-exam-open" type="checkbox" checked class="accent-emerald-400 w-4 h-4">
+                <span class="text-emerald-300 font-semibold">시험 응시 열림(활성화)</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-slate-800 flex items-center justify-between">
+            <button type="button" onclick="handleClearAllSubmissions()"
+              class="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800 px-3.5 py-2 rounded-lg font-bold transition">
+              <i class="fa-solid fa-trash-can mr-1"></i>전체 응시 기록 초기화
+            </button>
+
+            <button type="submit"
+              class="bg-gradient-to-r from-cyan-500 to-indigo-600 text-slate-950 hover:text-white font-extrabold px-5 py-2.5 rounded-xl shadow transition">
+              <i class="fa-solid fa-floppy-disk mr-1"></i>설정 저장 및 즉시 반영
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Right 6 Cols: Question Bank Export / Import & Sandbox -->
+      <div class="lg:col-span-6 glass-card p-6 rounded-2xl space-y-4">
+        <h3 class="text-base font-extrabold text-white flex items-center gap-2">
+          <i class="fa-solid fa-database text-indigo-400"></i> 문제은행(90문항) JSON 관리 및 SQL 테스트
+        </h3>
+        <p class="text-xs text-slate-400">
+          현재 등록된 <strong>SQL 기초(30) · 활용(30) · 응용(30)</strong> 총 90문항을 JSON으로 내려받거나 새 문제 파일을 일괄 업로드할 수 있습니다.
+        </p>
+
+        <div class="flex flex-wrap gap-2">
+          <button type="button" onclick="exportQuestionsJson()"
+            class="bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 text-xs font-bold px-3.5 py-2 rounded-lg transition">
+            <i class="fa-solid fa-file-code mr-1"></i>현재 90문항 JSON 다운로드
+          </button>
+
+          <label class="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 text-xs font-bold px-3.5 py-2 rounded-lg transition cursor-pointer">
+            <i class="fa-solid fa-upload mr-1"></i>문제 JSON 파일 업로드
+            <input type="file" accept=".json" onchange="handleImportQuestionsJson(event)" class="hidden">
+          </label>
+
+          <button type="button" onclick="handleResetQuestionsDefault()"
+            class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold px-3 py-2 rounded-lg transition">
+            기본 90문항 복원
+          </button>
+        </div>
+
+        <!-- Live SQL Sandbox for Admin -->
+        <div class="pt-3 border-t border-slate-800 space-y-2">
+          <label class="block text-xs font-bold text-slate-300">
+            <i class="fa-solid fa-terminal text-emerald-400 mr-1"></i> 관리자용 실습 DB(SQLite) 쿼리 즉시 실행기
+          </label>
+          <div class="flex gap-2">
+            <input id="admin-sandbox-sql" type="text"
+              value="SELECT 소속학과, COUNT(*) AS 학생수, ROUND(AVG(나이), 1) AS 평균나이 FROM 학생 GROUP BY 소속학과;"
+              class="flex-grow bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white code-font outline-none focus:border-cyan-400">
+            <button type="button" onclick="runAdminSqlSandbox()"
+              class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-lg shrink-0 transition">
+              실행
+            </button>
+          </div>
+          <div id="admin-sandbox-output" class="bg-slate-950 border border-slate-800 rounded-lg p-3 max-h-44 overflow-auto"></div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Candidate Detail Modal -->
+  <div id="candidate-detail-modal" class="fixed inset-0 z-50 hidden bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-card rounded-2xl max-w-4xl w-full max-h-[88vh] flex flex-col shadow-2xl border border-slate-700">
+      <div class="p-5 border-b border-slate-800 flex justify-between items-center">
+        <div>
+          <h3 id="modal-cand-title" class="text-lg font-extrabold text-white">응시자 상세 답안지</h3>
+          <p id="modal-cand-subtitle" class="text-xs text-slate-400"></p>
+        </div>
+        <button type="button" onclick="closeCandidateModal()" class="text-slate-400 hover:text-white text-lg px-2">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div id="modal-cand-body" class="p-5 overflow-y-auto space-y-3 custom-scroll flex-grow"></div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/questions-data.js"></script>
+  <script src="js/grader.js"></script>
+  <script src="js/storage-service.js"></script>
+  <script src="js/admin-app.js"></script>
+</body>
+</html>
+

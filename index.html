@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SQL Master 실전 역량 평가 | 기초 · 활용 · 응용 (객관식 45 · 주관식 45)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <!-- sql.js (SQLite WebAssembly for real-time SQL execution & auto-grading) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+  <!-- Firebase SDK (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <style>
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+    @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap');
+
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #0b1120;
+      color: #f1f5f9;
+    }
+    .code-font {
+      font-family: 'Fira Code', monospace;
+    }
+    .glass-card {
+      background: rgba(30, 41, 59, 0.78);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(71, 85, 105, 0.55);
+    }
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(51, 65, 85, 0.65);
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(71, 85, 105, 0.9);
+      border-radius: 4px;
+    }
+    @keyframes timer-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.55; transform: scale(1.03); }
+    }
+    .timer-warning {
+      animation: timer-pulse 0.9s infinite;
+      color: #f87171 !important;
+    }
+    .option-btn {
+      transition: all 0.18s ease;
+    }
+    .option-btn:hover {
+      border-color: rgba(34, 211, 238, 0.6);
+      background: rgba(30, 41, 59, 0.95);
+    }
+    .option-btn.selected {
+      border-color: #06b6d4;
+      background: rgba(6, 182, 212, 0.14);
+      box-shadow: 0 0 18px rgba(6, 182, 212, 0.18);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-cyan-500 selection:text-slate-950">
+
+  <!-- Top Sticky Header -->
+  <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
+      <div class="flex items-center space-x-3">
+        <div class="bg-gradient-to-br from-indigo-600 to-cyan-600 text-white w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20">
+          <i class="fa-solid fa-database text-lg"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg sm:text-xl font-extrabold bg-gradient-to-r from-indigo-400 via-cyan-300 to-emerald-300 bg-clip-text text-transparent">
+              SQL Master 역량 평가 시스템
+            </h1>
+            <span class="hidden sm:inline-block text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+              PASS 80점 이상
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">SQL 기초 · SQL 활용 · SQL 응용 | 객관식(1분) · 주관식(2분) 자동채점</p>
+        </div>
+      </div>
+
+      <!-- Right Area: Active Exam Timer & Admin Link -->
+      <div class="flex items-center gap-3">
+        <!-- Active Exam Status (Hidden until exam starts) -->
+        <div id="header-exam-status" class="hidden items-center gap-3">
+          <div class="hidden md:flex items-center gap-2 bg-slate-950/90 border border-slate-800 px-3 py-1.5 rounded-lg text-xs">
+            <i class="fa-solid fa-user-graduate text-cyan-400"></i>
+            <span class="text-slate-400">응시자:</span>
+            <span id="header-student-name" class="font-bold text-white"></span>
+          </div>
+
+          <!-- Circular + Digital Timer Box -->
+          <div id="timer-container" class="flex items-center bg-slate-950 border border-slate-700 px-3.5 py-1.5 rounded-xl gap-2.5 shadow-inner">
+            <div class="relative w-7 h-7 flex items-center justify-center">
+              <svg class="w-7 h-7 -rotate-90" viewBox="0 0 36 36">
+                <circle cx="18" cy="18" r="15" fill="none" stroke="#1e293b" stroke-width="3.5"></circle>
+                <circle id="timer-ring" cx="18" cy="18" r="15" fill="none" stroke="#22d3ee" stroke-width="3.5"
+                  stroke-dasharray="94.2" stroke-dashoffset="0" stroke-linecap="round"></circle>
+              </svg>
+              <i class="fa-solid fa-stopwatch text-[10px] text-cyan-400 absolute"></i>
+            </div>
+            <div>
+              <div class="text-[10px] text-slate-400 leading-none">문항 제한시간</div>
+              <div id="timer-display" class="code-font text-base font-extrabold text-cyan-300 leading-tight">01:00</div>
+            </div>
+          </div>
+
+          <!-- Progress Counter -->
+          <div class="bg-slate-950 px-3.5 py-1.5 rounded-xl border border-slate-800 text-xs flex items-center gap-2">
+            <span class="text-slate-400">진행도</span>
+            <span id="progress-text" class="code-font font-bold text-cyan-400">1 / 45</span>
+          </div>
+        </div>
+
+        <a href="admin.html" class="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold px-3.5 py-2 rounded-lg border border-slate-700 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-chart-pie text-amber-400"></i>
+          <span>관리자 콘솔</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Top Linear Timer Progress Bar (Active during exam) -->
+    <div id="timer-bar-wrap" class="hidden w-full bg-slate-800 h-1.5 overflow-hidden">
+      <div id="timer-bar" class="bg-gradient-to-r from-cyan-400 via-indigo-500 to-emerald-400 h-full w-full transition-all duration-1000 ease-linear"></div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full flex flex-col">
+
+    <!-- ===================================================================
+         VIEW 1: START / CATEGORY & TYPE SELECTION SCREEN
+         =================================================================== -->
+    <section id="view-start" class="my-auto py-4">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+        <!-- Left 7 Cols: Exam Category & Type Matrix Overview -->
+        <div class="lg:col-span-7 space-y-5">
+          <div class="glass-card rounded-2xl p-6 shadow-xl">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <div>
+                <span class="text-xs font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+                  <i class="fa-solid fa-layer-group"></i> SQL 3대 영역 × 객관식/주관식 문제은행
+                </span>
+                <h2 class="text-xl sm:text-2xl font-extrabold text-white mt-1">
+                  카테고리별 · 유형별 맞춤 실전 평가
+                </h2>
+              </div>
+              <span class="text-xs bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 px-3 py-1 rounded-full font-semibold">
+                총 90문항 (객관식 45 + 주관식 45)
+              </span>
+            </div>
+
+            <p class="text-sm text-slate-300 leading-relaxed mb-5">
+              아래 <strong>6개 영역 카드</strong>를 클릭하여 특정 파트만 응시하거나, 우측 설정 패널에서 <strong>객관식 45문항 / 주관식 45문항 / 통합 90문항</strong>을 선택해 시험을 시작할 수 있습니다.
+            </p>
+
+            <!-- 3 Categories x 2 Types Quick Select Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mb-6">
+              <!-- Ch05 SQL 기초 -->
+              <div class="glass-panel rounded-xl p-4 border-t-2 border-t-indigo-500">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-xs font-bold text-indigo-400">CH05</span>
+                  <span class="text-[11px] text-slate-400">DDL · SELECT · JOIN</span>
+                </div>
+                <h3 class="text-base font-bold text-white mb-3">SQL 기초</h3>
+                <div class="space-y-2">
+                  <button type="button" onclick="quickSelectPreset('SQL 기초', 'choice')"
+                    class="preset-card-btn w-full text-left px-3 py-2 rounded-lg bg-slate-800/90 hover:bg-indigo-600/25 border border-slate-700 hover:border-indigo-400 transition flex items-center justify-between text-xs">
+                    <span><i class="fa-solid fa-list-check mr-1.5 text-indigo-400"></i>객관식</span>
+                    <span class="code-font font-bold text-slate-200">15문항 · 1분</span>
+                  </button>
+                  <button type="button" onclick="quickSelectPreset('SQL 기초', 'sql')"
+                    class="preset-card-btn w-full text-left px-3 py-2 rounded-lg bg-slate-800/90 hover:bg-indigo-600/25 border border-slate-700 hover:border-indigo-400 transition flex items-center justify-between text-xs">
+                    <span><i class="fa-solid fa-code mr-1.5 text-cyan-400"></i>주관식</span>
+                    <span class="code-font font-bold text-slate-200">15문항 · 2분</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Ch06 SQL 활용 -->
+              <div class="glass-panel rounded-xl p-4 border-t-2 border-t-cyan-500">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-xs font-bold text-cyan-400">CH06</span>
+                  <span class="text-[11px] text-slate-400">제약조건 · DCL · VIEW · INDEX</span>
+                </div>
+                <h3 class="text-base font-bold text-white mb-3">SQL 활용</h3>
+                <div class="space-y-2">
+                  <button type="button" onclick="quickSelectPreset('SQL 활용', 'choice')"
+                    class="preset-card-btn w-full text-left px-3 py-2 rounded-lg bg-slate-800/90 hover:bg-cyan-600/25 border border-slate-700 hover:border-cyan-400 transition flex items-center justify-between text-xs">
+                    <span><i class="fa-solid fa-list-check mr-1.5 text-indigo-400"></i>객관식</span>
+                    <span class="code-font font-bold text-slate-200">15문항 · 1분</span>
+                  </button>
+                  <button type="button" onclick="quickSelectPreset('SQL 활용', 'sql')"
+                    class="preset-card-btn w-full text-left px-3 py-2 rounded-lg bg-slate-800/90 hover:bg-cyan-600/25 border border-slate-700 hover:border-cyan-400 transition flex items-center justify-between text-xs">
+                    <span><i class="fa-solid fa-code mr-1.5 text-cyan-400"></i>주관식</span>
+                    <span class="code-font font-bold text-slate-200">15문항 · 2분</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Ch07 SQL 응용 -->
+              <div class="glass-panel rounded-xl p-4 border-t-2 border-t-emerald-500">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-xs font-bold text-emerald-400">CH07</span>
+                  <span class="text-[11px] text-slate-400">내장함수 · 프로시저 · 트랜잭션</span>
+                </div>
+                <h3 class="text-base font-bold text-white mb-3">SQL 응용</h3>
+                <div class="space-y-2">
+                  <button type="button" onclick="quickSelectPreset('SQL 응용', 'choice')"
+                    class="preset-card-btn w-full text-left px-3 py-2 rounded-lg bg-slate-800/90 hover:bg-emerald-600/25 border border-slate-700 hover:border-emerald-400 transition flex items-center justify-between text-xs">
+                    <span><i class="fa-solid fa-list-check mr-1.5 text-indigo-400"></i>객관식</span>
+                    <span class="code-font font-bold text-slate-200">15문항 · 1분</span>
+                  </button>
+                  <button type="button" onclick="quickSelectPreset('SQL 응용', 'sql')"
+                    class="preset-card-btn w-full text-left px-3 py-2 rounded-lg bg-slate-800/90 hover:bg-emerald-600/25 border border-slate-700 hover:border-emerald-400 transition flex items-center justify-between text-xs">
+                    <span><i class="fa-solid fa-code mr-1.5 text-cyan-400"></i>주관식</span>
+                    <span class="code-font font-bold text-slate-200">15문항 · 2분</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Exam Rules Box -->
+            <div class="bg-slate-950/90 rounded-xl p-4 border border-slate-800 space-y-2.5 text-xs text-slate-300">
+              <div class="font-bold text-amber-400 flex items-center gap-1.5 text-sm">
+                <i class="fa-solid fa-triangle-exclamation"></i> 시험 진행 및 자동 제출 규칙 안내
+              </div>
+              <ul class="space-y-1.5 list-disc list-inside text-slate-300">
+                <li><strong>문항별 제한 시간:</strong> 객관식 1문항당 <span class="text-cyan-300 font-bold">1분(60초)</span>, 주관식 1문항당 <span class="text-cyan-300 font-bold">2분(120초)</span>이 부여됩니다.</li>
+                <li><strong>시간 초과 시 자동 이동:</strong> 제한 시간 내에 풀지 못하면 현재까지 선택·작성한 답안이 자동 제출되며 즉시 다음 문제로 넘어갑니다.</li>
+                <li><strong>이전 문제 이동 불가:</strong> 한 번 넘어간 문제는 다시 되돌아갈 수 없으며, 응시자마다 문제 순서가 무작위로 섞여 출제됩니다.</li>
+                <li><strong>다음 버튼 = 즉시 제출:</strong> 문제 하단의 <span class="text-indigo-300 font-semibold">[다음 ➔]</span> 버튼을 누르면 답안이 즉시 제출됩니다.</li>
+                <li><strong>합격 기준 및 해설 공개:</strong> 100점 환산 기준 <span class="text-emerald-400 font-bold">80점 이상 합격(PASS)</span>이며, 모든 문제의 정답과 해설은 시험 종료 후 결과 화면에서만 확인하실 수 있습니다.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right 5 Cols: Student Name & Exam Start Form -->
+        <div class="lg:col-span-5">
+          <div class="glass-card rounded-2xl p-6 shadow-2xl border-t-4 border-t-cyan-500">
+            <h3 class="text-lg font-extrabold text-white mb-1 flex items-center gap-2">
+              <i class="fa-solid fa-pen-to-square text-cyan-400"></i> 응시자 정보 입력 및 시작
+            </h3>
+            <p class="text-xs text-slate-400 mb-5">이름을 입력하고 응시할 단원과 문제 유형을 확인하세요.</p>
+
+            <form id="start-exam-form" onsubmit="event.preventDefault(); startExamSession();" class="space-y-4">
+              <!-- Student Name -->
+              <div>
+                <label for="input-student-name" class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                  응시자 성명 <span class="text-rose-400">*</span>
+                </label>
+                <div class="relative">
+                  <i class="fa-solid fa-user absolute left-3.5 top-3 text-slate-500 text-sm"></i>
+                  <input id="input-student-name" type="text" required maxlength="30"
+                    placeholder="이름을 입력하세요 (예: 홍길동)"
+                    class="w-full bg-slate-950 border border-slate-700 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white outline-none transition">
+                </div>
+              </div>
+
+              <!-- Category Filter -->
+              <div>
+                <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                  1. 평가 단원(카테고리) 선택
+                </label>
+                <div class="grid grid-cols-2 gap-2" id="category-select-group">
+                  <button type="button" onclick="selectStartFilter('category', 'ALL')" data-cat="ALL"
+                    class="cat-opt-btn bg-indigo-600 text-white border border-indigo-400 font-bold text-xs py-2.5 px-3 rounded-xl transition flex items-center justify-between">
+                    <span>전체 단원 (Ch05~07)</span>
+                    <i class="fa-solid fa-check text-[10px]"></i>
+                  </button>
+                  <button type="button" onclick="selectStartFilter('category', 'SQL 기초')" data-cat="SQL 기초"
+                    class="cat-opt-btn bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 font-semibold text-xs py-2.5 px-3 rounded-xl transition flex items-center justify-between">
+                    <span>SQL 기초 (Ch05)</span>
+                  </button>
+                  <button type="button" onclick="selectStartFilter('category', 'SQL 활용')" data-cat="SQL 활용"
+                    class="cat-opt-btn bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 font-semibold text-xs py-2.5 px-3 rounded-xl transition flex items-center justify-between">
+                    <span>SQL 활용 (Ch06)</span>
+                  </button>
+                  <button type="button" onclick="selectStartFilter('category', 'SQL 응용')" data-cat="SQL 응용"
+                    class="cat-opt-btn bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 font-semibold text-xs py-2.5 px-3 rounded-xl transition flex items-center justify-between">
+                    <span>SQL 응용 (Ch07)</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Question Type Filter -->
+              <div>
+                <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                  2. 문제 유형 선택 (객관식 / 주관식 구분)
+                </label>
+                <div class="grid grid-cols-1 gap-2" id="type-select-group">
+                  <button type="button" onclick="selectStartFilter('type', 'choice')" data-type="choice"
+                    class="type-opt-btn bg-cyan-600/25 text-cyan-200 border border-cyan-400 font-bold text-xs py-2.5 px-3.5 rounded-xl transition flex items-center justify-between">
+                    <span><i class="fa-solid fa-list-ol mr-2"></i>객관식 문제 (문항당 1분 제한)</span>
+                    <span id="badge-cnt-choice" class="code-font bg-cyan-500/30 px-2 py-0.5 rounded text-cyan-200">45문항</span>
+                  </button>
+                  <button type="button" onclick="selectStartFilter('type', 'sql')" data-type="sql"
+                    class="type-opt-btn bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 font-semibold text-xs py-2.5 px-3.5 rounded-xl transition flex items-center justify-between">
+                    <span><i class="fa-solid fa-terminal mr-2"></i>주관식 SQL 문제 (문항당 2분 제한)</span>
+                    <span id="badge-cnt-sql" class="code-font bg-slate-800 px-2 py-0.5 rounded text-slate-400">45문항</span>
+                  </button>
+                  <button type="button" onclick="selectStartFilter('type', 'all')" data-type="all"
+                    class="type-opt-btn bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 font-semibold text-xs py-2.5 px-3.5 rounded-xl transition flex items-center justify-between">
+                    <span><i class="fa-solid fa-layer-group mr-2"></i>객관식 + 주관식 통합 응시</span>
+                    <span id="badge-cnt-all" class="code-font bg-slate-800 px-2 py-0.5 rounded text-slate-400">90문항</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Selected Summary Box -->
+              <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-3.5 flex items-center justify-between text-xs">
+                <div>
+                  <span class="text-slate-400 block">선택된 시험 구성</span>
+                  <span id="start-summary-title" class="font-bold text-white text-sm">전체 단원 · 객관식 45문항</span>
+                </div>
+                <div class="text-right">
+                  <span class="text-slate-400 block">최대 제한 시간</span>
+                  <span id="start-summary-time" class="code-font font-bold text-cyan-400 text-sm">45분 (문항당 1분)</span>
+                </div>
+              </div>
+
+              <div id="start-error-msg" class="hidden text-xs text-rose-400 bg-rose-950/50 border border-rose-800/60 rounded-lg px-3 py-2"></div>
+
+              <button type="submit" id="btn-start-exam"
+                class="w-full bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-slate-950 hover:text-white font-extrabold text-sm py-3.5 px-6 rounded-xl shadow-lg shadow-cyan-500/20 transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-play"></i>
+                <span>시험 시작하기</span>
+              </button>
+            </form>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ===================================================================
+         VIEW 2: ACTIVE EXAM QUESTION VIEW (ONE-WAY, AUTO-ADVANCE)
+         =================================================================== -->
+    <section id="view-exam" class="hidden flex-grow flex flex-col md:flex-row gap-6">
+
+      <!-- Left Sidebar: Progress Status & DB Schema Reference -->
+      <aside class="w-full md:w-72 flex flex-col gap-4 shrink-0">
+        <!-- Locked Question Sequence Grid -->
+        <div class="glass-card p-4 rounded-xl">
+          <div class="flex justify-between items-center mb-2.5">
+            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <i class="fa-solid fa-lock text-amber-400"></i> 문항 진행 현황 (역주행 불가)
+            </h2>
+            <span id="sidebar-mode-badge" class="text-[11px] text-cyan-400 font-semibold">객관식</span>
+          </div>
+          <div id="exam-q-grid" class="grid grid-cols-5 gap-1.5 max-h-56 overflow-y-auto pr-1 custom-scroll"></div>
+          <div class="mt-3 pt-2.5 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+            <span><span class="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1"></span>제출완료</span>
+            <span><span class="inline-block w-2 h-2 rounded-full bg-cyan-400 mr-1"></span>현재문항</span>
+            <span><span class="inline-block w-2 h-2 rounded-full bg-slate-700 mr-1"></span>대기중</span>
+          </div>
+        </div>
+
+        <!-- Reference Schema Box (Helpful for SQL Questions) -->
+        <div class="glass-card p-4 rounded-xl flex-grow flex flex-col">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
+              <i class="fa-solid fa-table"></i> 실습 DB 테이블 스키마
+            </h3>
+            <span class="text-[10px] text-slate-400">참고용</span>
+          </div>
+          <div class="text-xs text-slate-300 space-y-2.5 code-font bg-slate-950/80 p-3 rounded-lg border border-slate-800 overflow-y-auto max-h-72 custom-scroll">
+            <div>
+              <div class="text-indigo-400 font-bold">학생 (학생1, 학생2)</div>
+              <div class="text-[11px] text-slate-400 leading-relaxed">
+                <u>학번</u>(CHAR), 이름, 주소, 학년(INT), 나이(INT), 성별, 휴대폰번호, 소속학과
+              </div>
+            </div>
+            <div class="border-t border-slate-800/80 pt-2">
+              <div class="text-cyan-400 font-bold">과목 (과목1, 과목2)</div>
+              <div class="text-[11px] text-slate-400 leading-relaxed">
+                <u>과목번호</u>(CHAR), 이름, 강의실, 개설학과, 시수(INT)
+              </div>
+            </div>
+            <div class="border-t border-slate-800/80 pt-2">
+              <div class="text-emerald-400 font-bold">수강 (수강1, 수강2)</div>
+              <div class="text-[11px] text-slate-400 leading-relaxed">
+                <u>학번, 과목번호</u>, 신청날짜(DATE), 중간성적(INT), 기말성적(INT), 평가학점(CHAR)
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Question Solver Card -->
+      <div class="flex-grow flex flex-col">
+        <div class="glass-card rounded-2xl p-6 sm:p-8 shadow-2xl flex flex-col justify-between flex-grow">
+          <div>
+            <!-- Top Badges & Remaining Time Pill -->
+            <div class="flex flex-wrap justify-between items-center gap-2 mb-5 pb-4 border-b border-slate-700/60">
+              <div class="flex flex-wrap items-center gap-2">
+                <span id="q-category-badge" class="bg-indigo-500/20 text-indigo-300 text-xs font-bold px-3 py-1 rounded-lg border border-indigo-500/30">
+                  SQL 기초
+                </span>
+                <span id="q-type-badge" class="bg-cyan-500/20 text-cyan-300 text-xs font-bold px-3 py-1 rounded-lg border border-cyan-500/30">
+                  객관식 (제한시간 1분)
+                </span>
+                <span id="q-number-label" class="code-font text-sm font-extrabold text-slate-300 ml-1">
+                  Q. 01 / 45
+                </span>
+              </div>
+
+              <div class="flex items-center gap-2 text-xs text-slate-400">
+                <i class="fa-solid fa-bolt text-amber-400"></i>
+                <span>시간 초과 시 자동 제출 후 다음 문제로 이동합니다</span>
+              </div>
+            </div>
+
+            <!-- Question Title & Detailed Conditions -->
+            <div class="mb-6">
+              <h3 id="q-title" class="text-lg sm:text-xl font-bold text-white leading-relaxed"></h3>
+              <div id="q-desc-box" class="hidden mt-3.5">
+                <pre id="q-desc" class="text-xs sm:text-sm text-slate-200 whitespace-pre-wrap bg-slate-950/85 p-4 rounded-xl border border-slate-800 leading-relaxed code-font"></pre>
+              </div>
+            </div>
+
+            <!-- Option Area for Multiple Choice (type === 'choice') -->
+            <div id="choice-options-container" class="hidden space-y-3 mb-6"></div>
+
+            <!-- SQL Editor Area for Subjective Questions (type === 'sql') -->
+            <div id="sql-input-container" class="hidden mb-6">
+              <div class="flex items-center justify-between mb-2">
+                <label for="user-sql-answer" class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <i class="fa-solid fa-terminal text-cyan-400"></i> SQL 쿼리 / 주관식 답안 입력
+                </label>
+                <span class="text-[11px] text-slate-400">대소문자 구분 없음 · 세미콜론(;) 생략 가능</span>
+              </div>
+              <textarea id="user-sql-answer" rows="6"
+                placeholder="여기에 SQL 쿼리문 또는 주관식 정답을 입력하세요...&#10;예) SELECT DISTINCT 소속학과 FROM 학생;"
+                class="w-full bg-slate-950 text-slate-100 code-font p-4 rounded-xl border border-slate-700 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 outline-none text-sm leading-relaxed resize-y"></textarea>
+            </div>
+          </div>
+
+          <!-- Bottom Navigation Bar: ONLY '다음 (자동 제출)' button as requested! -->
+          <div class="pt-5 border-t border-slate-700/70 flex flex-wrap justify-between items-center gap-3">
+            <div class="text-xs text-slate-400 flex items-center gap-2">
+              <i class="fa-solid fa-shield-halved text-cyan-400"></i>
+              <span>이전 문제 이동 및 시험 중 해설 보기는 제한됩니다.</span>
+            </div>
+
+            <button type="button" id="next-submit-btn" onclick="handleNextButtonClick()"
+              class="bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-slate-950 hover:text-white font-extrabold text-sm px-7 py-3 rounded-xl shadow-lg shadow-cyan-500/20 transition flex items-center gap-2 ml-auto">
+              <span id="next-submit-btn-text">다음 문제 (자동 제출)</span>
+              <i class="fa-solid fa-arrow-right"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ===================================================================
+         VIEW 3: EXAM RESULT & EXPLANATION REVIEW SCREEN
+         =================================================================== -->
+    <section id="view-result" class="hidden space-y-6 py-4">
+
+      <!-- Score Summary Banner -->
+      <div class="glass-card rounded-2xl p-6 sm:p-8 shadow-2xl border-t-4 border-t-cyan-400">
+        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+          <div>
+            <div class="flex items-center gap-2.5 mb-2">
+              <span id="res-pass-badge" class="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider">
+                PASS (합격)
+              </span>
+              <span id="res-mode-label" class="text-xs text-slate-400 font-semibold"></span>
+            </div>
+            <h2 class="text-2xl sm:text-3xl font-black text-white">
+              <span id="res-student-name" class="text-cyan-400"></span>님의 평가 결과 리포트
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-400 mt-1">
+              채점 결과가 저장되었습니다. 아래에서 영역별 성취도와 문항별 상세 해설을 확인하세요.
+            </p>
+          </div>
+
+          <!-- Big Score Display -->
+          <div class="flex items-center gap-6 bg-slate-950/90 px-6 py-4 rounded-2xl border border-slate-800 w-full lg:w-auto justify-between lg:justify-end">
+            <div>
+              <div class="text-xs text-slate-400">환산 총점 (합격기준 80점)</div>
+              <div class="flex items-baseline gap-1 mt-0.5">
+                <span id="res-score-100" class="code-font text-4xl font-black text-white">0</span>
+                <span class="text-sm text-slate-400 font-bold">/ 100점</span>
+              </div>
+            </div>
+            <div class="h-10 w-px bg-slate-800"></div>
+            <div>
+              <div class="text-xs text-slate-400">정답 문항 / 총 문항</div>
+              <div id="res-correct-Summary" class="code-font text-lg font-extrabold text-cyan-400 mt-1">0 / 45</div>
+              <div id="res-elapsed-summary" class="text-[11px] text-slate-500">소요 시간: 0분 0초</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Area Breakdown Cards (SQL 기초 / 활용 / 응용) -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6 pt-6 border-t border-slate-800" id="res-area-cards"></div>
+      </div>
+
+      <!-- Review & Explanation List (Only shown after finishing the exam!) -->
+      <div class="glass-card rounded-2xl p-6 shadow-xl">
+        <div class="flex flex-wrap justify-between items-center gap-3 mb-5">
+          <div>
+            <h3 class="text-lg font-extrabold text-white flex items-center gap-2">
+              <i class="fa-solid fa-lightbulb text-amber-400"></i>
+              <span>문항별 채점 결과 및 모범 답안 · 해설</span>
+            </h3>
+            <p class="text-xs text-slate-400">시험 종료 후에만 공개되는 상세 해설과 정답 쿼리입니다.</p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="filterResultReview('all')" data-rfilter="all"
+              class="res-filter-btn bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition">
+              전체 문항
+            </button>
+            <button type="button" onclick="filterResultReview('wrong')" data-rfilter="wrong"
+              class="res-filter-btn bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold px-3 py-1.5 rounded-lg transition">
+              틀린/부분점수 문항만
+            </button>
+            <button type="button" onclick="returnToStartScreen()"
+              class="bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/40 text-xs font-bold px-3.5 py-1.5 rounded-lg transition ml-2">
+              <i class="fa-solid fa-rotate-right mr-1"></i>다른 단원/유형 응시하기
+            </button>
+          </div>
+        </div>
+
+        <div id="res-review-list" class="space-y-4"></div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Toast Notification for Auto-Advance on Timeout -->
+  <div id="toast-notification" class="fixed bottom-6 right-6 z-50 hidden bg-slate-900 border border-amber-500/60 text-slate-100 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-xs font-semibold">
+    <i class="fa-solid fa-clock text-amber-400 text-base"></i>
+    <span id="toast-message">제한 시간이 종료되어 답안이 자동 제출되었습니다.</span>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/questions-data.js"></script>
+  <script src="js/grader.js"></script>
+  <script src="js/storage-service.js"></script>
+  <script src="js/exam-app.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,7 @@
+node_modules/
+.firebase/
+firebase-debug.log
+firestore-debug.log
+__pycache__/
+*.pyc
+.DS_Store
