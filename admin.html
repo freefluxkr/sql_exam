@@ -73,12 +73,9 @@
           <label for="admin-passcode-input" class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
             관리자 접속 암호
           </label>
-          <input id="admin-passcode-input" type="password" value="admin1234"
-            placeholder="관리자 암호 입력 (기본: admin1234)"
+          <input id="admin-passcode-input" type="password" required autocomplete="current-password"
+            placeholder="관리자 접속 암호를 입력하세요"
             class="w-full bg-slate-950 border border-slate-700 focus:border-cyan-400 rounded-xl px-4 py-2.5 text-sm text-white outline-none">
-          <p class="text-[11px] text-slate-400 mt-1.5">
-            * 빠른 확인을 위해 기본 암호(<code class="text-cyan-300 code-font">admin1234</code>)가 입력되어 있습니다.
-          </p>
         </div>
 
         <div id="admin-auth-error" class="hidden text-xs text-rose-400 bg-rose-950/60 border border-rose-800 rounded-lg px-3 py-2"></div>

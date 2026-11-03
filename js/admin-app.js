@@ -12,7 +12,7 @@
 (function (global) {
   'use strict';
 
-  const ADMIN_PASSCODE = 'admin1234';
+  const ADMIN_PASSCODE = 'EKDAHREKAEMF';
   const SESSION_AUTH_KEY = 'dmdg_sql_exam_admin_authed';
 
   let allSubmissions = [];
@@ -53,12 +53,12 @@
     const input = document.getElementById('admin-passcode-input');
     const errEl = document.getElementById('admin-auth-error');
     const val = input ? input.value.trim() : '';
-    if (val === ADMIN_PASSCODE || val === 'dmdg2026') {
+    if (val === ADMIN_PASSCODE) {
       if (errEl) errEl.classList.add('hidden');
       unlockAdminConsole();
     } else {
       if (errEl) {
-        errEl.textContent = '관리자 암호가 올바르지 않습니다. (기본값: admin1234)';
+        errEl.textContent = '관리자 접속 암호가 올바르지 않습니다.';
         errEl.classList.remove('hidden');
       }
     }
@@ -75,7 +75,7 @@
       unlockAdminConsole();
     } catch (err) {
       if (errEl) {
-        errEl.textContent = 'Google 인증 안내: 로컬 환경에서는 암호(admin1234)로 바로 입장하실 수 있습니다.';
+        errEl.textContent = 'Google 인증에 실패했습니다. 관리자 접속 암호를 입력해 주세요.';
         errEl.classList.remove('hidden');
       }
     }
