@@ -160,15 +160,30 @@
       return;
     }
 
-    if (settings.blockDuplicateDevice) {
-      const existing = global.SqlExamStorage.getDeviceId();
+    if (settings.blockDuplicateDevice !== false) {
+      const existingDeviceId = global.SqlExamStorage.getDeviceId();
       const allSubs = await global.SqlExamStorage.fetchAllSubmissions();
-      const alreadyTaken = allSubs.some(function (s) {
-        return s.deviceId === existing;
+      const normName = studentName.replace(/\s+/g, '').toLowerCase();
+
+      const dupNameSub = allSubs.find(function (s) {
+        return String(s.studentName || '').replace(/\s+/g, '').toLowerCase() === normName;
       });
-      if (alreadyTaken) {
+      if (dupNameSub) {
         if (errorEl) {
-          errorEl.textContent = '이미 이 기기에서 시험을 제출하셨습니다. (관리자 설정: 기기당 1회 응시 제한)';
+          errorEl.textContent =
+            '이미 [' + studentName + '] 성명으로 제출된 응시 기록이 존재하여 재응시가 불가능합니다. (재응시가 필요한 경우 관리자에게 기록 삭제를 요청하세요)';
+          errorEl.classList.remove('hidden');
+        }
+        return;
+      }
+
+      const dupDeviceSub = allSubs.find(function (s) {
+        return s.deviceId && s.deviceId === existingDeviceId;
+      });
+      if (dupDeviceSub) {
+        if (errorEl) {
+          errorEl.textContent =
+            '이미 이 기기(브라우저)에서 [' + dupDeviceSub.studentName + '] 성명으로 시험을 응시하셨습니다. 동일 기기 재응시는 불가능합니다.';
           errorEl.classList.remove('hidden');
         }
         return;

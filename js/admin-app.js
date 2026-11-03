@@ -711,7 +711,7 @@
     document.getElementById('set-sql-time').value = s.sqlTimeLimit || 120;
     document.getElementById('set-pass-score').value = s.passScore || 80;
     document.getElementById('set-shuffle').checked = s.shuffleQuestions !== false;
-    document.getElementById('set-block-dup').checked = Boolean(s.blockDuplicateDevice);
+    document.getElementById('set-block-dup').checked = s.blockDuplicateDevice !== false;
     document.getElementById('set-exam-open').checked = s.examOpen !== false;
   }
 

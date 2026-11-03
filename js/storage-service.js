@@ -21,7 +21,7 @@
     sqlTimeLimit: 120,         // 주관식 1문항 2분 (120초)
     passScore: 80,             // 합격 기준 점수 (100점 만점 환산 기준 80점)
     shuffleQuestions: true,    // 응시자마다 문제 순서 섞기
-    blockDuplicateDevice: false, // 동일 기기 중복 응시 차단 여부 (관리자 설정 가능)
+    blockDuplicateDevice: true, // 동일인(동일 이름 또는 동일 기기) 재응시 차단 (기본 활성화)
     examOpen: true,            // 시험 응시 열림/닫힘
     showExplanationOnResult: true, // 시험 종료 후 결과 화면에서 해설 공개
     updatedAt: new Date().toISOString(),
