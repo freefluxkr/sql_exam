@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>SQL 평가 관리자 콘솔 | 채점 · 6대 통계지표 · 주관식 검수</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
@@ -73,7 +76,7 @@
           <label for="admin-passcode-input" class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
             관리자 접속 암호
           </label>
-          <input id="admin-passcode-input" type="password" required autocomplete="current-password"
+          <input id="admin-passcode-input" type="password" value="" required autocomplete="new-password"
             placeholder="관리자 접속 암호를 입력하세요"
             class="w-full bg-slate-950 border border-slate-700 focus:border-cyan-400 rounded-xl px-4 py-2.5 text-sm text-white outline-none">
         </div>
@@ -542,10 +545,10 @@
   </div>
 
   <!-- Scripts -->
-  <script src="js/questions-data.js"></script>
-  <script src="js/grader.js"></script>
-  <script src="js/storage-service.js"></script>
-  <script src="js/admin-app.js"></script>
+  <script src="js/questions-data.js?v=20261103_2"></script>
+  <script src="js/grader.js?v=20261103_2"></script>
+  <script src="js/storage-service.js?v=20261103_2"></script>
+  <script src="js/admin-app.js?v=20261103_2"></script>
 </body>
 </html>
 

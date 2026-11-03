@@ -12,7 +12,8 @@
 (function (global) {
   'use strict';
 
-  const ADMIN_PASSCODE = 'EKDAHREKAEMF';
+  // '당목담글' 영문 자판: ekd(당) + ahr(목) + eka(담) + rmf(글) = ekdahrekarmf (대소문자 무관 허용)
+  const ALLOWED_PASSCODES = ['EKDAHREKARMF', 'EKDAHREKAEMF', '당목담글'];
   const SESSION_AUTH_KEY = 'dmdg_sql_exam_admin_authed';
 
   let allSubmissions = [];
@@ -53,7 +54,8 @@
     const input = document.getElementById('admin-passcode-input');
     const errEl = document.getElementById('admin-auth-error');
     const val = input ? input.value.trim() : '';
-    if (val === ADMIN_PASSCODE) {
+    const upperVal = val.toUpperCase();
+    if (ALLOWED_PASSCODES.includes(upperVal) || ALLOWED_PASSCODES.includes(val)) {
       if (errEl) errEl.classList.add('hidden');
       unlockAdminConsole();
     } else {
@@ -931,6 +933,10 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
+    const passInput = document.getElementById('admin-passcode-input');
+    if (passInput) {
+      passInput.value = '';
+    }
     global.SqlExamGrader.initSqlEngine();
 
     if (sessionStorage.getItem(SESSION_AUTH_KEY) === '1') {
