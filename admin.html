@@ -122,11 +122,18 @@
 
       <!-- Quick Action Buttons -->
       <div class="flex flex-wrap items-center gap-2">
+        <button type="button" onclick="handleClearAllSubmissions()"
+          class="bg-rose-600/25 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/40 text-xs font-extrabold px-3.5 py-2 rounded-lg transition flex items-center gap-1.5"
+          title="테스트 데이터 및 모든 응시 기록을 0건으로 깨끗하게 초기화합니다">
+          <i class="fa-solid fa-trash-can"></i>
+          <span>데이터 전체 초기화</span>
+        </button>
+
         <button type="button" onclick="handleSeedDemoData()"
-          class="bg-indigo-600/25 hover:bg-indigo-600/40 text-indigo-200 border border-indigo-500/40 text-xs font-bold px-3 py-2 rounded-lg transition flex items-center gap-1.5"
-          title="통계 그래프와 순위표를 즉시 테스트할 수 있도록 샘플 응시자 10명의 데이터를 생성합니다">
+          class="bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 text-xs font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1.5"
+          title="통계 그래프 테스트용 샘플 응시자 10명을 생성합니다">
           <i class="fa-solid fa-wand-magic-sparkles text-indigo-400"></i>
-          <span>샘플 응시 데이터 생성(10명)</span>
+          <span>샘플 생성(테스트용)</span>
         </button>
 
         <button type="button" onclick="exportSubmissionsCsv()"
@@ -545,10 +552,10 @@
   </div>
 
   <!-- Scripts -->
-  <script src="js/questions-data.js?v=20261103_3"></script>
-  <script src="js/grader.js?v=20261103_3"></script>
-  <script src="js/storage-service.js?v=20261103_3"></script>
-  <script src="js/admin-app.js?v=20261103_3"></script>
+  <script src="js/questions-data.js?v=20261103_4"></script>
+  <script src="js/grader.js?v=20261103_4"></script>
+  <script src="js/storage-service.js?v=20261103_4"></script>
+  <script src="js/admin-app.js?v=20261103_4"></script>
 </body>
 </html>
 

@@ -368,8 +368,24 @@
 
   async function clearAllSubmissions() {
     saveLocalSubmissions([]);
+    localStorage.setItem('dmdg_sql_exam_demo_seeded_v1', '1');
     if (broadcastChannel) {
       broadcastChannel.postMessage({ type: 'SUBMISSIONS_CLEARED' });
+    }
+    const db = initFirebase();
+    if (db) {
+      try {
+        const snap = await db.collection('sql_exam_submissions').limit(500).get();
+        if (!snap.empty) {
+          const batch = db.batch();
+          snap.docs.forEach(function (doc) {
+            batch.delete(doc.ref);
+          });
+          await batch.commit();
+        }
+      } catch (err) {
+        console.warn('[StorageService] Cloud clear warning:', err.message);
+      }
     }
     return [];
   }

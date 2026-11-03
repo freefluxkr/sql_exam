@@ -120,14 +120,19 @@
   }
 
   async function loadAdminDataAndRender() {
-    allSubmissions = await global.SqlExamStorage.fetchAllSubmissions();
-
-    // Auto-seed demo data on very first visit if empty so Admin charts are immediately visible
-    if (allSubmissions.length === 0 && !localStorage.getItem('dmdg_sql_exam_demo_seeded_v1')) {
-      localStorage.setItem('dmdg_sql_exam_demo_seeded_v1', '1');
-      allSubmissions = global.SqlExamStorage.seedDemoSubmissions();
+    // One-time auto cleanup of initial auto-seeded DEMO-SUB-* records so real statistics start clean
+    if (!localStorage.getItem('dmdg_sql_exam_demo_cleaned_v2')) {
+      localStorage.setItem('dmdg_sql_exam_demo_cleaned_v2', '1');
+      const existing = await global.SqlExamStorage.fetchAllSubmissions();
+      const hasOnlyDemo = existing.length > 0 && existing.every(function (s) {
+        return String(s.id || '').startsWith('DEMO-SUB-');
+      });
+      if (hasOnlyDemo) {
+        await global.SqlExamStorage.clearAllSubmissions();
+      }
     }
 
+    allSubmissions = await global.SqlExamStorage.fetchAllSubmissions();
     updatePendingReviewBadge();
     switchAdminTab(activeTab);
   }
@@ -924,11 +929,12 @@
   }
 
   async function handleClearAllSubmissions() {
-    if (!confirm('모든 응시 기록을 초기화하시겠습니까?')) return;
+    if (!confirm('테스트 데이터를 포함한 모든 응시 기록과 통계를 0건으로 완전히 초기화하시겠습니까?')) return;
     await global.SqlExamStorage.clearAllSubmissions();
     allSubmissions = [];
     updatePendingReviewBadge();
     switchAdminTab(activeTab);
+    alert('모든 응시 데이터와 통계 지표가 0건으로 깨끗하게 초기화되었습니다!');
   }
 
   document.addEventListener('DOMContentLoaded', function () {
