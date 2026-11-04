@@ -662,10 +662,83 @@
     if (!listEl || !lastFinishedSubmission) return;
     listEl.innerHTML = '';
 
+    const allQuestions = global.SqlExamStorage.getQuestions();
     const allQuestionsMap = new Map();
-    global.SqlExamStorage.getQuestions().forEach(function (q) {
+    const userDetailsMap = new Map();
+    allQuestions.forEach(function (q) {
       allQuestionsMap.set(q.id, q);
     });
+    (lastFinishedSubmission.details || []).forEach(function (d) {
+      userDetailsMap.set(d.questionId, d);
+    });
+
+    if (currentReviewFilter === 'bank') {
+      allQuestions.forEach(function (q, idx) {
+        const d = userDetailsMap.get(q.id) || null;
+        const item = document.createElement('div');
+        const borderCls = d
+          ? (d.isCorrect ? 'border-emerald-500/30' : (d.score > 0 ? 'border-amber-500/40' : 'border-rose-500/40'))
+          : 'border-slate-800';
+        item.className = 'bg-slate-950/85 border ' + borderCls + ' rounded-xl p-5 space-y-3';
+
+        const statusBadge = d
+          ? (d.isCorrect
+              ? '<span class="px-2.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-xs font-bold">응시: 정답 (+' + d.score + '점)</span>'
+              : (d.score > 0
+                  ? '<span class="px-2.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-xs font-bold">응시: 부분점수 (+' + d.score + '점)</span>'
+                  : '<span class="px-2.5 py-0.5 rounded bg-rose-500/20 text-rose-300 text-xs font-bold">응시: 오답 (0점)</span>'))
+          : '<span class="px-2.5 py-0.5 rounded bg-slate-800 text-slate-400 text-xs font-semibold">문제은행 정답·해설</span>';
+
+        let answerBodyHtml = '';
+        if (q.type === 'choice') {
+          const opts = q.options || [];
+          answerBodyHtml =
+            '<div class="grid grid-cols-1 gap-1.5 text-xs">' +
+            opts.map(function (optStr, optIdx) {
+              const optNum = optIdx + 1;
+              const isCorrectOpt = Number(q.answer) === optNum;
+              const isUserOpt = d && Number(d.userAnswer) === optNum;
+              const boxCls = isCorrectOpt
+                ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-200 font-bold'
+                : (isUserOpt ? 'bg-rose-950/40 border-rose-500/50 text-rose-200' : 'bg-slate-900/70 border-slate-800 text-slate-300');
+              const badgeStr =
+                (isCorrectOpt ? '<span class="ml-2 px-2 py-0.5 rounded bg-emerald-500/25 text-emerald-300 text-[11px] font-extrabold">정답</span>' : '') +
+                (isUserOpt ? '<span class="ml-1.5 px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 text-[11px] font-bold">내 선택</span>' : '');
+              return (
+                '<div class="p-2.5 rounded-lg border ' + boxCls + ' flex items-center justify-between gap-2">' +
+                '<span><strong class="code-font mr-1.5">' + optNum + '번.</strong>' + escapeHtml(optStr) + '</span>' +
+                '<div class="shrink-0">' + badgeStr + '</div>' +
+                '</div>'
+              );
+            }).join('') +
+            '</div>';
+        } else {
+          answerBodyHtml =
+            '<div class="bg-slate-900 p-3.5 rounded-lg border border-slate-800 text-xs">' +
+            '<div class="text-slate-400 mb-1.5 font-semibold">모범 정답 (Standard SQL / Answer):</div>' +
+            '<pre class="code-font whitespace-pre-wrap text-emerald-400">' + escapeHtml(q.answer || '') + '</pre>' +
+            '</div>';
+        }
+
+        item.innerHTML =
+          '<div class="flex flex-wrap justify-between items-center gap-2">' +
+          '<div class="flex items-center gap-2">' +
+          '<span class="code-font text-xs font-bold text-slate-400">#' + (idx + 1) + ' (' + escapeHtml(q.id) + ')</span>' +
+          '<span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-cyan-300 font-semibold">' + escapeHtml(q.category) + ' · ' + (q.type === 'choice' ? '객관식' : '주관식/SQL') + '</span>' +
+          statusBadge +
+          '</div>' +
+          '</div>' +
+          '<div class="text-sm sm:text-base font-bold text-white leading-relaxed">' + escapeHtml(q.title || '') + '</div>' +
+          answerBodyHtml +
+          '<div class="bg-indigo-950/30 border border-indigo-500/25 rounded-lg p-3.5 text-xs text-slate-200 leading-relaxed">' +
+          '<span class="font-bold text-amber-400 mr-1.5"><i class="fa-solid fa-lightbulb"></i> 핵심 해설:</span>' +
+          escapeHtml(q.explanation || '') +
+          '</div>';
+
+        listEl.appendChild(item);
+      });
+      return;
+    }
 
     const details = (lastFinishedSubmission.details || []).filter(function (d) {
       if (currentReviewFilter === 'wrong') {
@@ -705,7 +778,29 @@
         const opts = q.options || [];
         const userOptText = d.userAnswer ? d.userAnswer + '번 — ' + (opts[d.userAnswer - 1] || '') : '미선택 (무응답)';
         const corrOptText = d.correctAnswer + '번 — ' + (opts[d.correctAnswer - 1] || '');
+        const optionsListHtml =
+          '<div class="grid grid-cols-1 gap-1.5 text-xs mb-2">' +
+          opts.map(function (optStr, optIdx) {
+            const optNum = optIdx + 1;
+            const isCorrectOpt = Number(d.correctAnswer) === optNum;
+            const isUserOpt = Number(d.userAnswer) === optNum;
+            const boxCls = isCorrectOpt
+              ? 'bg-emerald-950/35 border-emerald-500/50 text-emerald-200 font-bold'
+              : (isUserOpt ? 'bg-rose-950/35 border-rose-500/50 text-rose-200' : 'bg-slate-900/60 border-slate-800/80 text-slate-400');
+            const badgeStr =
+              (isCorrectOpt ? '<span class="ml-2 px-2 py-0.5 rounded bg-emerald-500/25 text-emerald-300 text-[11px] font-extrabold">정답</span>' : '') +
+              (isUserOpt ? '<span class="ml-1.5 px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 text-[11px] font-bold">내 선택</span>' : '');
+            return (
+              '<div class="px-3 py-2 rounded-lg border ' + boxCls + ' flex items-center justify-between gap-2">' +
+              '<span><strong class="code-font mr-1.5">' + optNum + '번.</strong>' + escapeHtml(optStr) + '</span>' +
+              '<div class="shrink-0">' + badgeStr + '</div>' +
+              '</div>'
+            );
+          }).join('') +
+          '</div>';
+
         answerCompareHtml =
+          optionsListHtml +
           '<div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">' +
           '<div class="bg-slate-900 p-3 rounded-lg border border-slate-800">' +
           '<div class="text-slate-400 mb-1">내가 선택한 답안:</div>' +
@@ -763,6 +858,64 @@
     });
   }
 
+  async function handleVerifyAndShowAnswers() {
+    const errorEl = document.getElementById('start-error-msg');
+    if (errorEl) errorEl.classList.add('hidden');
+
+    // 1. 시험 응시 진행 중인 경우 차단
+    const viewExamEl = document.getElementById('view-exam');
+    if (examSession || (viewExamEl && !viewExamEl.classList.contains('hidden'))) {
+      showToast('⛔ 시험 응시 진행 중에는 정답 및 해설을 볼 수 없습니다. 시험 제출을 먼저 완료해 주세요.');
+      return;
+    }
+
+    // 2. 이미 결과 화면이 열려 있는 경우 해설 영역으로 스크롤
+    const viewResultEl = document.getElementById('view-result');
+    if (lastFinishedSubmission && viewResultEl && !viewResultEl.classList.contains('hidden')) {
+      const reviewSec = document.getElementById('res-review-section');
+      if (reviewSec) reviewSec.scrollIntoView({ behavior: 'smooth' });
+      showToast('✅ 아래에서 문항별 정답과 상세 해설을 확인하세요.');
+      return;
+    }
+
+    // 3. 시작 화면에서 클릭한 경우: 응시자 성명 확인 후 응시 완료 여부 검증
+    const nameInput = document.getElementById('input-student-name');
+    const studentName = nameInput ? nameInput.value.trim() : '';
+
+    if (!studentName) {
+      if (errorEl) {
+        errorEl.textContent = '⚠️ 응시 완료 여부를 확인하기 위해 먼저 [응시자 성명] 입력란에 본인 성명을 입력한 뒤 [정답 확인] 버튼을 눌러주세요.';
+        errorEl.classList.remove('hidden');
+      }
+      showToast('⚠️ 먼저 응시자 성명을 입력한 뒤 [정답 확인]을 눌러주세요.');
+      if (nameInput) nameInput.focus();
+      return;
+    }
+
+    const normInputName = studentName.replace(/\s+/g, '').toLowerCase();
+    const allSubs = await global.SqlExamStorage.fetchAllSubmissions();
+    const matchedSub = allSubs.find(function (s) {
+      return String(s.studentName || '').replace(/\s+/g, '').toLowerCase() === normInputName;
+    });
+
+    if (!matchedSub) {
+      if (errorEl) {
+        errorEl.textContent = '⛔ 입력하신 성명으로는 아직 시험 응시 완료 기록이 확인되지 않습니다. 정답 및 해설은 시험 응시를 완료한 사람만 볼 수 있습니다.';
+        errorEl.classList.remove('hidden');
+      }
+      showToast('⛔ 응시 완료 기록이 없어 정답 및 해설을 열람할 수 없습니다.');
+      return;
+    }
+
+    lastFinishedSubmission = matchedSub;
+    renderResultView(matchedSub);
+    setTimeout(function () {
+      const reviewSec = document.getElementById('res-review-section');
+      if (reviewSec) reviewSec.scrollIntoView({ behavior: 'smooth' });
+    }, 150);
+    showToast('✅ 응시 완료 기록이 확인되어 정답 및 상세 해설을 표시합니다.');
+  }
+
   function returnToStartScreen() {
     document.getElementById('view-result').classList.add('hidden');
     document.getElementById('view-exam').classList.add('hidden');
@@ -770,9 +923,79 @@
     updateStartFilterSummaryUI();
   }
 
+  // Anti-cheating & copy prevention: block selecting/copying questions and choices (except subjective input textarea)
+  function initAntiCopyProtection() {
+    function isExamActive() {
+      const examView = document.getElementById('view-exam');
+      return examView && !examView.classList.contains('hidden');
+    }
+
+    function isAllowedInput(target) {
+      if (!target) return false;
+      const tag = target.tagName ? target.tagName.toLowerCase() : '';
+      if (tag === 'textarea' || tag === 'input') return true;
+      if (target.closest && (target.closest('#sql-input-container') || target.closest('textarea') || target.closest('input'))) {
+        return true;
+      }
+      return false;
+    }
+
+    // 1. Block right-click context menu outside subjective textarea/input
+    document.addEventListener('contextmenu', function (e) {
+      if (isExamActive() && !isAllowedInput(e.target)) {
+        e.preventDefault();
+        showToast('⚠️ 시험 부정행위 방지를 위해 문제 및 보기의 우클릭/복사가 제한됩니다.');
+      }
+    });
+
+    // 2. Block text selection start outside subjective textarea/input
+    document.addEventListener('selectstart', function (e) {
+      if (isExamActive() && !isAllowedInput(e.target)) {
+        e.preventDefault();
+      }
+    });
+
+    // 3. Block text dragging outside subjective textarea/input
+    document.addEventListener('dragstart', function (e) {
+      if (isExamActive() && !isAllowedInput(e.target)) {
+        e.preventDefault();
+      }
+    });
+
+    // 4. Block copy & cut events outside subjective textarea/input
+    document.addEventListener('copy', function (e) {
+      if (isExamActive() && !isAllowedInput(e.target)) {
+        e.preventDefault();
+        showToast('⚠️ 시험 부정행위 방지를 위해 문제 및 보기 텍스트 복사가 제한됩니다.');
+      }
+    });
+
+    document.addEventListener('cut', function (e) {
+      if (isExamActive() && !isAllowedInput(e.target)) {
+        e.preventDefault();
+      }
+    });
+
+    // 5. Block shortcut keys like Ctrl+C, Ctrl+A, Ctrl+X outside subjective textarea/input
+    document.addEventListener('keydown', function (e) {
+      if (!isExamActive()) return;
+      if (isAllowedInput(e.target)) return;
+
+      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+      if (isCtrlOrCmd) {
+        const k = (e.key || '').toLowerCase();
+        if (k === 'c' || k === 'a' || k === 'x') {
+          e.preventDefault();
+          showToast('⚠️ 시험 부정행위 방지를 위해 문제 및 보기의 복사는 제한됩니다.');
+        }
+      }
+    });
+  }
+
   // Restore active session if page was reloaded mid-exam
   document.addEventListener('DOMContentLoaded', function () {
     updateStartFilterSummaryUI();
+    initAntiCopyProtection();
 
     const savedSession = global.SqlExamStorage.getActiveSession();
     if (
@@ -794,5 +1017,6 @@
   global.handleNextButtonClick = handleNextButtonClick;
   global.filterResultReview = filterResultReview;
   global.returnToStartScreen = returnToStartScreen;
+  global.handleVerifyAndShowAnswers = handleVerifyAndShowAnswers;
 })(window);
 
