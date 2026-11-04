@@ -583,7 +583,7 @@ window.SQL_EXAM_QUESTIONS = [
     "type": "choice",
     "timeLimit": 60,
     "points": 2,
-    "title": "MySQL 주요 문자 내장 함수 중, 문자열 '데이터베이스'의 실제 바이트 수(12바이트)가 아닌 순수한 문자 개수(6개)를 반환하는 함수는?",
+    "title": "MySQL 주요 문자 내장 함수 중, 문자열 '데이터베이스'의 실제 바이트 수(18바이트)가 아닌 순수한 문자 개수(6개)를 반환하는 함수는?",
     "description": "",
     "options": [
       "`LENGTH('데이터베이스')`",
@@ -592,7 +592,7 @@ window.SQL_EXAM_QUESTIONS = [
       "`BYTE_LENGTH('데이터베이스')`"
     ],
     "answer": 2,
-    "explanation": "`LENGTH()` 함수는 문자열의 바이트 수(UTF-8 한글 한 글자당 3바이트 적용 시 12)를 반환하고, `CHAR_LENGTH()` 함수는 순수한 문자 글자 수(6)를 반환합니다."
+    "explanation": "`LENGTH()` 함수는 문자열의 바이트 수(UTF-8 한글 한 글자당 3바이트 × 6글자 = 18)를 반환하고, `CHAR_LENGTH()` 함수는 순수한 문자 글자 수(6)를 반환합니다."
   },
   {
     "id": "A-C-02",
@@ -1700,7 +1700,7 @@ window.SQL_EXAM_QUESTIONS = [
     "shortTitle": "내장 문자 함수 (CHAR_LENGTH vs LENGTH)",
     "title": "UTF-8 환경에서 문자열 `'데이터베이스'`에 대한 `LENGTH('데이터베이스')`와 `CHAR_LENGTH('데이터베이스')` 두 함수의 반환값을 각각 쓰시오.",
     "description": "",
-    "answer": "1. LENGTH('데이터베이스'): 12 (바이트 수 반환, 한글 1자당 3바이트 x 4 = 12)\n2. CHAR_LENGTH('데이터베이스'): 4 (순수 글자 수 반환)",
+    "answer": "1. LENGTH('데이터베이스'): 18 (바이트 수 반환, 한글 1자당 3바이트 x 6 = 18)\n2. CHAR_LENGTH('데이터베이스'): 6 (순수 글자 수 반환)",
     "explanation": "`LENGTH()`는 메모리 할당 바이트 크기를, `CHAR_LENGTH()`는 실제 문자 개수를 반환합니다.",
     "grading": "keyword",
     "orderMatters": false,
@@ -1708,11 +1708,7 @@ window.SQL_EXAM_QUESTIONS = [
     "checkSql": "",
     "keywords": [
       "18",
-      "12",
-      "6",
-      "4",
-      "바이트",
-      "글자"
+      "6"
     ]
   },
   {
